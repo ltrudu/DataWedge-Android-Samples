@@ -12,10 +12,22 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
+        <Button
+            android:id="@+id/btAddFromAssets"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="btnOnClickAddTemplateFromAssets"
+            android:text="Add Simulscan Template From Assets" />
+
         <TextView
             android:id="@+id/txtTemplate"
             android:layout_marginBottom="10dp"
             android:text=""
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <Spinner
+            android:id="@+id/spSources"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 
@@ -35,8 +47,8 @@
 
             <Button
                 android:layout_width="0dp"
-                android:layout_weight="1"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:onClick="btnOnClickCreateProfile"
                 android:text="Re-create profile"
                 android:textAllCaps="false" />

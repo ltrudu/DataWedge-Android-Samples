@@ -14,6 +14,8 @@ public class IntentKeys {
     public static final String INTENT_OUTPUT_ACTION = "com.symbol.genericdata.INTENT_OUTPUT";
 
     public static final String COMMAND_IDENTIFIER_CREATE_PROFILE = "CREATE_PROFILE";
+    public static final String COMMAND_IDENTIFIER_SWITCH_SCANNER = "SWITCH_SCANNER";
+    public static final String COMMAND_IDENTIFIER_SWITCH_SCANNER_PARAMS = "SWITCH_SCANNER_PARAMS";
     public static final String COMMAND_IDENTIFIER_EXTRA = "COMMAND_IDENTIFIER";
     public static final String RESULT_ACTION = "com.symbol.datawedge.api.RESULT_ACTION";
     public static final String LABEL_TYPE_SIGNATURE = "LABEL-TYPE-SIGNATURE";

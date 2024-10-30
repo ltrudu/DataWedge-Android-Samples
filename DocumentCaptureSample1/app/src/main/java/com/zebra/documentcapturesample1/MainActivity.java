@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.AssetManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -14,15 +15,30 @@ import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.zebra.emdkprofilemanagerhelper.IResultCallbacks;
+import com.zebra.emdkprofilemanagerhelper.ProfileManagerCommand;
+
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
 
@@ -44,10 +60,13 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static String TAG = "DocumentCapture";
     public static String TEMPLATE_NAME = "SignatureAndAddressSeparately";
     TextView txtStatus = null;
     TextView txtTemplate = null;
     LinearLayout layoutRegeions = null;
+    Spinner spSources = null;
+    int nScannerIndex = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,14 +76,15 @@ public class MainActivity extends AppCompatActivity {
         txtTemplate  = findViewById(R.id.txtTemplate);
         txtTemplate.setText("Template \"" + TEMPLATE_NAME + "\", must be available in the device to run this application. Please use DataWedgeMGR via StageNow to push the templates to device");
         layoutRegeions = findViewById(R.id.layoutRegeions);
+        spSources = findViewById(R.id.spSources);
+        initSourcesSpinner();
         registerReceivers();
-
+        queryProfileList();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        queryProfileList();
     }
 
     @Override
@@ -77,6 +97,36 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         unRegisterReceivers();
+    }
+
+    private void initSourcesSpinner()
+    {
+       List<String> friendlyNameList = new ArrayList<>();
+       friendlyNameList.add("AUTO");
+       friendlyNameList.add("INTERNAL_IMAGER");
+       friendlyNameList.add("INTERNAL_CAMERA");
+       ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<String>(MainActivity.this, android.R.layout.simple_spinner_item, friendlyNameList);
+       spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+       spSources.setAdapter(spinnerAdapter);
+       spSources.setSelection(nScannerIndex);
+       spSources.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+           @Override
+           public void onItemSelected(AdapterView<?> adapterView, View view, int position, long l) {
+               if(nScannerIndex != position)
+               {
+                    nScannerIndex = position;
+                    //updateStatus("Updating profile to use:" + getScannerSelection());
+                    //createProfile();
+                   updateStatus("Switching scanner to:" + getScannerSelection());
+                   switchScanner();
+               }
+           }
+
+           @Override
+           public void onNothingSelected(AdapterView<?> adapterView) {
+
+           }
+       });
     }
 
     private void queryProfileList()
@@ -97,7 +147,54 @@ public class MainActivity extends AppCompatActivity {
         sendBroadcast(i);
     }
 
+    private String getScannerSelection()
+    {
+        return (String)spSources.getSelectedItem();
+    }
+
+    private int getScannerSelectionAsIndexForSwitchParams()
+    {
+        switch(spSources.getSelectedItemPosition())
+        {
+            case 0:
+                return 0;
+            case 1:
+                return 1;
+            case 2:
+                return 3;
+            default:
+                return 0;
+        }
+    }
+
+    private void switchScanner()
+    {
+        Intent i = new Intent();
+        i.setAction("com.symbol.datawedge.api.ACTION");
+        i.putExtra("com.symbol.datawedge.api.SWITCH_SCANNER_EX",getScannerSelection());
+        i.putExtra("SEND_RESULT","true");
+        i.putExtra("COMMAND_IDENTIFIER",IntentKeys.COMMAND_IDENTIFIER_SWITCH_SCANNER);
+        this.sendBroadcast(i);
+    }
+
+    private void switchScannerParams()
+    {
+        Intent i = new Intent();
+        i.setAction("com.symbol.datawedge.api.ACTION");
+        i.setPackage("com.symbol.datawedge");
+        //i.putExtra("scanner_selection_by_identifier", getScannerSelection());
+        i.putExtra("SEND_RESULT","true");
+        i.putExtra("COMMAND_IDENTIFIER",IntentKeys.COMMAND_IDENTIFIER_SWITCH_SCANNER_PARAMS);
+        Bundle bScannerParams = new Bundle();
+        bScannerParams.putString("scanning_mode", String.valueOf(IntentKeys.DOCUMENT_CAPTURE_SCANNING_MODE)); // Set the scanning mode as "Document Capture"
+        bScannerParams.putString("doc_capture_template", TEMPLATE_NAME); // Give a template name
+        i.putExtra("com.symbol.datawedge.api.SWITCH_SCANNER_PARAMS", bScannerParams);
+        sendBroadcast(i);
+    }
+
     void createProfile() {
+
+        updateStatus("Creating profile.");
 
         Bundle bMain = new Bundle();
 
@@ -107,7 +204,7 @@ public class MainActivity extends AppCompatActivity {
 
         /*###### Configurations for Barcode Input [Start] ######*/
         bConfigBarcode.putString("PLUGIN_NAME", "BARCODE");
-        bParamsBarcode.putString("scanner_selection", "auto"); // Make scanner selection as auto
+        bParamsBarcode.putString("scanner_selection_by_identifier", getScannerSelection()); // Make scanner selection as auto
         bParamsBarcode.putString("scanning_mode", String.valueOf(IntentKeys.DOCUMENT_CAPTURE_SCANNING_MODE)); // Set the scanning mode as "Document Capture"
         //bParamsBarcode.putString("illumination_mode", "off"); // Turn off Illumination to scan a document from a reflective screen
         bParamsBarcode.putString("doc_capture_template", TEMPLATE_NAME); // Give a template name
@@ -167,15 +264,82 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(IntentKeys.NOTIFICATION_ACTION);
         filter.addAction(IntentKeys.INTENT_OUTPUT_ACTION);
         filter.addCategory(Intent.CATEGORY_DEFAULT);
-        registerReceiver(myBroadcastReceiver, filter);
+        registerReceiver(myBroadcastReceiver, filter, Context.RECEIVER_EXPORTED);
     }
 
     void unRegisterReceivers() {
         unregisterReceiver(myBroadcastReceiver);
     }
 
+    private void copySimulscanNGTemplateToExternalStorage() {
+        try {
+            AssetManager assetManager = getAssets();
+            InputStream in = assetManager.open("SignatureAndAddressSeparately.xml");
+            File outFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "SignatureAndAddressSeparately.xml");
+            if (outFile.exists()) {
+                outFile.delete();
+            }
+            OutputStream out = new FileOutputStream(outFile);
+            byte[] buffer = new byte[1024];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            in.close();
+            out.flush();
+            out.close();
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to copy asset file: " + e.getMessage());
+        }
+    }
+
+    public void btnOnClickAddTemplateFromAssets(View view)
+    {
+        copySimulscanNGTemplateToExternalStorage();
+        String profileName = "DWSimulscanNG-1";
+        String profileData = "";
+        String simulscanTemplateFilePath = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "SignatureAndAddressSeparately.xml").getPath();
+
+        try {
+            profileData =
+                    "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+                            "<characteristic type=\"Profile\">" +
+                            "<parm name=\"ProfileName\" value=\"" + profileName + "\"/>" +
+                            "<characteristic type=\"DataWedgeMgr\" version=\"10.1\">" +
+                            "<parm name=\"NGSimulScanTemplates\" value=\"" + "1" + "\" />" +
+                            "<parm name=\"NGSimulScanTemplateFile\" value=\"" + simulscanTemplateFilePath + "\" />" +
+                            "</characteristic>" +
+                            "</characteristic>";
+
+            ProfileManagerCommand profileManagerCommand = new ProfileManagerCommand(this);
+            profileManagerCommand.execute(profileData, profileName, new IResultCallbacks() {
+                @Override
+                public void onSuccess(String message, String resultXML) {
+                    updateStatus("Simulscan template imported successfully");
+                }
+
+                @Override
+                public void onError(String message, String resultXML) {
+                    updateStatus(message);
+                    Log.e(TAG, message);
+                }
+
+                @Override
+                public void onDebugStatus(String message) {
+                    Log.d(TAG, message);
+                }
+            });
+        }
+        catch(Exception e)
+        {
+            Log.e(TAG, "Failed to import simulscan profile: " + e.getMessage());
+            updateStatus(e.getMessage());
+        }
+    }
+
     public void btnOnClickCreateProfile(View view)
     {
+        updateStatus("Re-Creating profile");
         createProfile();
     }
 
@@ -238,7 +402,8 @@ public class MainActivity extends AppCompatActivity {
                     // Check if the create profile command succeeded for
                     // Barcode Input and Intent Output modules
                     if (extras.getString(IntentKeys.COMMAND_IDENTIFIER_EXTRA)
-                            .equalsIgnoreCase(IntentKeys.COMMAND_IDENTIFIER_CREATE_PROFILE)) {
+                            .equalsIgnoreCase(IntentKeys.COMMAND_IDENTIFIER_CREATE_PROFILE))
+                    {
                         ArrayList<Bundle> result_list = (ArrayList<Bundle>) extras.get("RESULT_LIST");
                         if (result_list != null && result_list.size() > 0) {
                             boolean allSuccess = true;
@@ -267,6 +432,7 @@ public class MainActivity extends AppCompatActivity {
                                 }
                             }
 
+
                             if (allSuccess) {
                                 updateStatus("Profile created successfully");
                             } else {
@@ -274,6 +440,29 @@ public class MainActivity extends AppCompatActivity {
                                 updateStatus("Profile creation failed!\n\n" + resultInfo);
                                 deleteProfile();
                             }
+                        }
+                    }
+                    else if (extras.getString(IntentKeys.COMMAND_IDENTIFIER_EXTRA)
+                            .equalsIgnoreCase(IntentKeys.COMMAND_IDENTIFIER_SWITCH_SCANNER))
+                    {
+                        String result2 = intent.getStringExtra("RESULT");
+                        if (result2.equalsIgnoreCase("SUCCESS")) {
+                                updateStatus("Scanner switched successfully");
+                                switchScannerParams();
+                            } else {
+
+                                updateStatus("Scanner switch failed!\n\n");
+                            }
+                    }
+                    else if (extras.getString(IntentKeys.COMMAND_IDENTIFIER_EXTRA)
+                            .equalsIgnoreCase(IntentKeys.COMMAND_IDENTIFIER_SWITCH_SCANNER_PARAMS))
+                    {
+                        String result2 = intent.getStringExtra("RESULT");
+                        if (result2.equalsIgnoreCase("SUCCESS")) {
+                            updateStatus("Scanner params switched successfully");
+                        } else {
+
+                            updateStatus("Scanner params switch failed!\n\n");
                         }
                     }
                 }
@@ -287,6 +476,13 @@ public class MainActivity extends AppCompatActivity {
                         public void run() {
                             Bundle data = intent.getExtras();
                             if (data != null) {
+
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        layoutRegeions.removeAllViews();
+                                    }
+                                });
 
                                 String decodedMode = data.getString(IntentKeys.DECODED_MODE);
 
@@ -490,6 +686,12 @@ public class MainActivity extends AppCompatActivity {
                             final ImageView img = new ImageView(getApplicationContext());
                             img.setImageBitmap(bmp);
                             showInUI(null, img);
+
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss");
+                            String currentDateandTime = sdf.format(new Date());
+                            String filePath = "/sdcard/Documents/Signature_" + currentDateandTime + ".png";
+
+                            BitmapHelpers.saveBitmapAsPNG(bmp, filePath );
                             //-- Creating YUV Image and Bitmap Image [Finish]
                         } catch (final Exception ex) {
                             runOnUiThread(new Runnable() {

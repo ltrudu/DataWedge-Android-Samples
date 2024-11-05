@@ -12,19 +12,25 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <Button
-            android:id="@+id/btAddFromAssets"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:onClick="btnOnClickAddTemplateFromAssets"
-            android:text="Add Simulscan Template From Assets" />
-
         <TextView
             android:id="@+id/txtTemplate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:layout_marginBottom="10dp"
-            android:text=""
+            android:text="" />
+
+        <Spinner
+            android:id="@+id/spTemplates"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/btRefreshTemplates"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:onClick="btnOnClickRefreshTemplatesList"
+            android:text="Refresh Templates List" />
 
         <Spinner
             android:id="@+id/spSources"

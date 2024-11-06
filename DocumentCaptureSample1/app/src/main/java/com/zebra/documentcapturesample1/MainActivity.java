@@ -155,6 +155,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String getTemplateSelection() { return (String)spTemplates.getSelectedItem(); }
+    private String getTemplateSelectionName()
+    {
+        if(spTemplates == null)
+        {
+            return Constants.PROFILE_NAME;
+        }
+        String fileNameWoExtension = ((String)spTemplates.getSelectedItem()).replace(".xml", "");
+        return fileNameWoExtension;
+    }
 
     private void initTemplateSpinner()
     {
@@ -181,6 +190,8 @@ public class MainActivity extends AppCompatActivity {
                         File targetFolder = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), Constants.TARGET_FOLDER);
                         File simulscanTemplateFilePath = new File(targetFolder, getTemplateSelection());
                         setSimulscanTemplateFromFilePath(simulscanTemplateFilePath);
+                        // Override profile with selected file
+                        createProfile();
                     }
                 }
 
@@ -199,6 +210,8 @@ public class MainActivity extends AppCompatActivity {
         File targetFolder = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), Constants.TARGET_FOLDER);
         File simulscanTemplateFilePath = new File(targetFolder, getTemplateSelection());
         setSimulscanTemplateFromFilePath(simulscanTemplateFilePath);
+        // Override profile with selected file
+        createProfile();
     }
 
     private String getScannerSelection()
@@ -241,7 +254,7 @@ public class MainActivity extends AppCompatActivity {
         i.putExtra("COMMAND_IDENTIFIER", Constants.COMMAND_IDENTIFIER_SWITCH_SCANNER_PARAMS);
         Bundle bScannerParams = new Bundle();
         bScannerParams.putString("scanning_mode", String.valueOf(Constants.DOCUMENT_CAPTURE_SCANNING_MODE)); // Set the scanning mode as "Document Capture"
-        bScannerParams.putString("doc_capture_template", TEMPLATE_NAME); // Give a template name
+        bScannerParams.putString("doc_capture_template", getTemplateSelectionName()); // Give a template name
         i.putExtra("com.symbol.datawedge.api.SWITCH_SCANNER_PARAMS", bScannerParams);
         sendBroadcast(i);
     }
@@ -261,7 +274,7 @@ public class MainActivity extends AppCompatActivity {
         bParamsBarcode.putString("scanner_selection_by_identifier", getScannerSelection()); // Make scanner selection as auto
         bParamsBarcode.putString("scanning_mode", String.valueOf(Constants.DOCUMENT_CAPTURE_SCANNING_MODE)); // Set the scanning mode as "Document Capture"
         //bParamsBarcode.putString("illumination_mode", "off"); // Turn off Illumination to scan a document from a reflective screen
-        bParamsBarcode.putString("doc_capture_template", TEMPLATE_NAME); // Give a template name
+        bParamsBarcode.putString("doc_capture_template", getTemplateSelectionName()); // Give a template name
         bConfigBarcode.putString("RESET_CONFIG", "true"); // Reset existing configurations of barcode input plugin
         bConfigBarcode.putBundle("PARAM_LIST", bParamsBarcode);
         bundlePluginConfig.add(bConfigBarcode);
@@ -792,7 +805,7 @@ public class MainActivity extends AppCompatActivity {
                             YuvImage yuvImage = new YuvImage(binaryData, ImageFormat.NV21,
                                     imgWidth, imgHeight, null);
                             yuvImage.compressToJpeg(new Rect(0, 0, imgWidth, imgHeight),
-                                    50, out);
+                                    100, out);
                             byte[] imageBytes = out.toByteArray();
 
 
@@ -805,9 +818,17 @@ public class MainActivity extends AppCompatActivity {
                             img.setImageBitmap(bmp);
                             showInUI(null, img);
 
+                            Date nowDate = new Date();
                             SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss");
-                            String currentDateandTime = sdf.format(new Date());
-                            String filePath = "/sdcard/Documents/Signature_" + currentDateandTime + ".png";
+                            SimpleDateFormat sdf2 = new SimpleDateFormat("yyyyMMdd");
+                            String currentDateandTime = sdf.format(nowDate);
+                            String currentDate = sdf2.format(nowDate);
+                            File targetFolder = new File("/sdcard/Documents/" + Constants.TARGET_FOLDER + "/" + currentDate + "/");
+                            if(targetFolder.exists() == false)
+                            {
+                                targetFolder.mkdirs();
+                            }
+                            String filePath = "/sdcard/Documents/" + Constants.TARGET_FOLDER + "/" + currentDate + "/" + "Picture_" + currentDateandTime + ".png";
 
                             BitmapHelpers.saveBitmapAsPNG(bmp, filePath );
                             //-- Creating YUV Image and Bitmap Image [Finish]
